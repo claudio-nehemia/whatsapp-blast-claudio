@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:latest
+    container_name: wa_blast_mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - wa_blast_network
+
+  whatsapp-service:
+    build: ./whatsapp-service
+    container_name: wa_blast_whatsapp_service
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+      - RUST_BACKEND_URL=http://backend:8000
+    volumes:
+      - wa_session_data:/app/storage/session
+    networks:
+      - wa_blast_network
+
+  backend:
+    build: ./backend
+    container_name: wa_blast_backend
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongodb
+    environment:
+      - PORT=8000
+      - MONGO_URI=mongodb://mongodb:27017
+      - MONGO_DB_NAME=whatsapp_blast
+      - JWT_SECRET=supersecretjwtkeyforwhatsappblast2026
+      - WHATSAPP_SERVICE_URL=http://whatsapp-service:5000
+      - GROQ_API_KEY=${GROQ_API_KEY}
+    networks:
+      - wa_blast_network
+
+  frontend:
+    build: ./frontend
+    container_name: wa_blast_frontend
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - wa_blast_network
+
+volumes:
+  mongo_data:
+  wa_session_data:
+
+networks:
+  wa_blast_network:
+    driver: bridge

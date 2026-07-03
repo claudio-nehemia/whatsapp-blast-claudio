@@ -1,0 +1,13 @@
+node_modules/
+backend/target/
+backend/storage/
+whatsapp-service/storage/session/
+.env
+.env.*
+.env.local
+.DS_Store
+.vscode/
+.idea/
+dist/
+build/
+*.log
