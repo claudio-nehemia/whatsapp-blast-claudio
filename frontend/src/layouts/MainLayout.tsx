@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { useLanguage } from '../hooks/useLanguage';
@@ -11,7 +11,9 @@ import {
   User, 
   LogOut,
   MessageSquare,
-  Smartphone
+  Smartphone,
+  Menu,
+  X
 } from 'lucide-react';
 
 const MainLayout: React.FC = () => {
@@ -19,6 +21,7 @@ const MainLayout: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
   const location = useLocation();
   const navigate = useNavigate();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const menuItems = [
     { name: t('dashboard'), path: '/', icon: LayoutDashboard },
@@ -43,19 +46,38 @@ const MainLayout: React.FC = () => {
   };
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-50">
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 relative">
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-zinc-900/30 backdrop-blur-xs md:hidden transition-opacity duration-200"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 border-r border-zinc-200 bg-white flex flex-col justify-between select-none">
+      <aside className={`fixed md:relative inset-y-0 left-0 z-50 w-64 border-r border-zinc-200 bg-white flex flex-col justify-between select-none transform transition-transform duration-200 ease-in-out md:transform-none ${
+        sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
+      }`}>
         <div>
           {/* Brand header */}
-          <div className="h-16 border-b border-zinc-100 flex items-center px-6 gap-3">
-            <div className="h-9 w-9 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 pulse-primary">
-              <MessageSquare className="h-5 w-5" />
+          <div className="h-16 border-b border-zinc-100 flex items-center justify-between px-6 gap-3">
+            <div className="flex items-center gap-3">
+              <div className="h-9 w-9 rounded-lg bg-emerald-100 flex items-center justify-center text-emerald-600 pulse-primary">
+                <MessageSquare className="h-5 w-5" />
+              </div>
+              <div>
+                <h1 className="font-bold text-sm tracking-tight text-zinc-800">WA Blast</h1>
+                <span className="text-[10px] text-zinc-400 font-mono">v2.0 Stable</span>
+              </div>
             </div>
-            <div>
-              <h1 className="font-bold text-sm tracking-tight text-zinc-800">WA Blast Platform</h1>
-              <span className="text-[10px] text-zinc-400 font-mono">v2.0 Stable</span>
-            </div>
+            {/* Close button for mobile */}
+            <button 
+              onClick={() => setSidebarOpen(false)}
+              className="md:hidden p-1.5 rounded-lg text-zinc-500 hover:text-zinc-800 hover:bg-slate-100 cursor-pointer"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
 
           {/* Navigation items */}
@@ -68,6 +90,7 @@ const MainLayout: React.FC = () => {
                 <Link
                   key={item.name}
                   to={item.path}
+                  onClick={() => setSidebarOpen(false)}
                   className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all duration-200 group ${
                     isActive 
                       ? 'bg-slate-100 text-zinc-950 border-l-2 border-emerald-600' 
@@ -107,13 +130,20 @@ const MainLayout: React.FC = () => {
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col overflow-hidden bg-slate-50">
-        <header className="h-16 border-b border-zinc-200 flex items-center justify-between px-8 bg-white/80 backdrop-blur-sm z-10">
-          <div>
-            <h2 className="text-sm font-bold text-zinc-800 uppercase tracking-wider">
+        <header className="h-16 border-b border-zinc-200 flex items-center justify-between px-4 md:px-8 bg-white/80 backdrop-blur-sm z-10">
+          <div className="flex items-center gap-3">
+            {/* Hamburger Menu Toggle */}
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="md:hidden p-2 rounded-lg text-zinc-600 hover:text-zinc-900 hover:bg-slate-100 transition-colors cursor-pointer"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <h2 className="text-xs md:text-sm font-bold text-zinc-800 uppercase tracking-wider">
               {getPageTitle()}
             </h2>
           </div>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 md:gap-6">
             {/* Language Switcher Pill */}
             <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg text-[10px] font-bold">
               <button 
@@ -140,13 +170,13 @@ const MainLayout: React.FC = () => {
 
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
-              <span className="text-xs text-zinc-500 font-semibold">Gateway Active</span>
+              <span className="text-[10px] md:text-xs text-zinc-500 font-semibold hidden sm:inline">Gateway Active</span>
             </div>
           </div>
         </header>
 
         {/* Content Outlet */}
-        <section className="flex-1 overflow-y-auto p-8">
+        <section className="flex-1 overflow-y-auto p-4 md:p-8">
           <div className="max-w-6xl mx-auto">
             <Outlet />
           </div>
