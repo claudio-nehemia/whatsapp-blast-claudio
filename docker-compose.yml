@@ -18,9 +18,8 @@ services:
     restart: always
     environment:
       - PORT=5000
-      - BACKEND_CALLBACK_URL=http://backend:8000/api/whatsapp/status
+      - RUST_BACKEND_URL=http://backend:8000
     volumes:
-      # Isolate session storage and mount the shared uploads volume at the same absolute path
       - whatsapp_sessions:/app/storage/session
       - backend_uploads:/app/storage/uploads
     depends_on:
@@ -35,8 +34,10 @@ services:
     container_name: whatsapp_rust_backend
     restart: always
     environment:
+      - PORT=8000
       - MONGO_URI=mongodb://mongodb:27017/whatsapp_blast
       - WHATSAPP_SERVICE_URL=http://whatsapp-service:5000
+      - JWT_SECRET=${JWT_SECRET}
       - GROQ_API_KEY=${GROQ_API_KEY}
     volumes:
       - backend_uploads:/app/storage/uploads
