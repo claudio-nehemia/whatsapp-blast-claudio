@@ -14,6 +14,7 @@ services:
     build:
       context: ./whatsapp-service
       dockerfile: Dockerfile
+      network: host
     container_name: whatsapp_node_gateway
     restart: always
     environment:
@@ -31,6 +32,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+      network: host
     container_name: whatsapp_rust_backend
     restart: always
     environment:
@@ -50,6 +52,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      network: host
     container_name: whatsapp_react_frontend
     restart: always
     ports:

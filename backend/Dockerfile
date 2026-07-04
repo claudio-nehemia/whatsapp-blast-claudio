@@ -3,6 +3,8 @@ FROM rust:slim AS builder
 WORKDIR /app
 COPY . .
 RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+ENV CARGO_NET_RETRY=10
+ENV CARGO_HTTP_MULTIPLEXING=false
 RUN cargo build --release
 
 # Runner stage
