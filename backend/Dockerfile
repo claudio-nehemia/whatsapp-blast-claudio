@@ -1,13 +1,15 @@
-# Stage 1: Build the Rust application
-FROM rust:1.80-slim as builder
+# Build stage
+FROM rust:1.75-slim AS builder
 WORKDIR /app
 COPY . .
+RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 RUN cargo build --release
 
-# Stage 2: Run the Rust application
+# Runner stage
 FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y ca-certificates libssl-dev && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
-RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /app/target/release/backend /app/backend
+RUN mkdir -p storage/uploads
 EXPOSE 8000
-CMD ["./backend"]
+CMD ["/app/backend"]

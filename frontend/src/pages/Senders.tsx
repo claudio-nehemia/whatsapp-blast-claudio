@@ -55,7 +55,9 @@ const Senders: React.FC = () => {
   useEffect(() => {
     fetchSenders();
 
-    const wsUrl = `ws://${window.location.hostname}:8000/ws`;
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsHost = window.location.port === '5173' ? `${window.location.hostname}:8000` : window.location.host;
+    const wsUrl = `${wsProtocol}//${wsHost}/ws`;
     let socket: WebSocket | null = null;
     let reconnectTimeout: number;
 
