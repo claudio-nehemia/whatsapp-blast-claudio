@@ -35,7 +35,7 @@ function handleWhatsAppEvent(sessionId, event) {
 app.get('/api/status', (req, res) => {
   const { sessionId } = req.query;
   if (!sessionId) {
-    return res.status(400).json({ error: 'sessionId query parameter is required' });
+    return res.json({ status: 'active', message: 'WhatsApp Service is running' });
   }
   res.json(getConnectionStatus(sessionId));
 });

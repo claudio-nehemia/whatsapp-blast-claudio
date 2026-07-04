@@ -11,6 +11,8 @@ export function normalizeJid(phone) {
   let clean = phone.toString().replace(/[^0-9]/g, '');
   if (clean.startsWith('0')) {
     clean = '62' + clean.slice(1);
+  } else if (clean.startsWith('8') && clean.length >= 9 && clean.length <= 13) {
+    clean = '62' + clean;
   }
   if (!clean.endsWith('@s.whatsapp.net')) {
     clean = clean + '@s.whatsapp.net';
