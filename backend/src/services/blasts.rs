@@ -124,7 +124,15 @@ pub async fn execute_blast(
         }
 
         let recipient_oid = ObjectId::new();
-        let personalized_text = replace_placeholders(&template.body, &contact.name, &contact.phone, &contact.dynamic_fields);
+        let sender_phone = sender.phone_number.as_deref().unwrap_or("");
+        let personalized_text = replace_placeholders(
+            &template.body,
+            &contact.name,
+            &contact.phone,
+            &sender.name,
+            sender_phone,
+            &contact.dynamic_fields,
+        );
 
         recipients_to_insert.push(BlastRecipient {
             id: Some(recipient_oid),
@@ -457,6 +465,8 @@ fn replace_placeholders(
     template_body: &str,
     name: &str,
     phone: &str,
+    sender_name: &str,
+    sender_phone: &str,
     fields: &mongodb::bson::Document,
 ) -> String {
     let mut text = template_body.to_string();
@@ -465,6 +475,9 @@ fn replace_placeholders(
     text = text.replace("{{nama}}", name);
     text = text.replace("{{phone}}", phone);
     text = text.replace("{{wa}}", phone);
+    text = text.replace("{{sender_name}}", sender_name);
+    text = text.replace("{{sender}}", sender_name);
+    text = text.replace("{{sender_phone}}", sender_phone);
     
     for (key, val) in fields.iter() {
         let placeholder = format!("{{{{{}}}}}", key);
