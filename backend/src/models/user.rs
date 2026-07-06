@@ -9,9 +9,14 @@ pub struct User {
     pub name: String,
     pub email: String,
     pub password_hash: String,
+    #[serde(default = "default_role")]
     pub role: String, // "superadmin" or "user"
     #[serde(with = "mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime")]
     pub created_at: DateTime<Utc>,
+}
+
+fn default_role() -> String {
+    "user".to_string()
 }
 
 #[derive(Debug, Deserialize)]
