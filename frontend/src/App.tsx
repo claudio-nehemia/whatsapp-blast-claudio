@@ -18,6 +18,7 @@ import Senders from './pages/Senders';
 import BlastHistory from './pages/BlastHistory';
 import BlastWizard from './pages/BlastWizard';
 import BlastProgress from './pages/BlastProgress';
+import Users from './pages/Users';
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,21 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   }
 
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+};
+
+// Route guard for superadmin users
+const SuperAdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user, isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
+        <div className="h-8 w-8 rounded-full border-2 border-zinc-200 border-t-[#128c7e] animate-spin"></div>
+      </div>
+    );
+  }
+
+  return isAuthenticated && user?.role === 'superadmin' ? <>{children}</> : <Navigate to="/" replace />;
 };
 
 const App: React.FC = () => {
@@ -64,6 +80,11 @@ const App: React.FC = () => {
                 <Route path="blast" element={<BlastHistory />} />
                 <Route path="blast/new" element={<BlastWizard />} />
                 <Route path="blast/progress/:id" element={<BlastProgress />} />
+                <Route path="admin/users" element={
+                  <SuperAdminRoute>
+                    <Users />
+                  </SuperAdminRoute>
+                } />
               </Route>
 
               {/* Fallback Redirect */}

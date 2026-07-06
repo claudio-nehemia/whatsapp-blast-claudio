@@ -15,6 +15,7 @@ pub mod blasts;
 pub mod settings;
 pub mod ws;
 pub mod senders;
+pub mod users;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -49,6 +50,8 @@ pub fn create_router(state: Arc<AppState>) -> Router {
         .route("/api/senders/:id/connect", post(senders::connect_sender))
         .route("/api/senders/:id/disconnect", post(senders::disconnect_sender))
         .route("/api/senders/:id", delete(senders::delete_sender))
+        .route("/api/admin/users", get(users::list_users).post(users::create_user))
+        .route("/api/admin/users/:id", put(users::update_user).delete(users::delete_user))
         .layer(middleware::from_fn(crate::middleware::auth::require_auth));
 
     // Combine all routes

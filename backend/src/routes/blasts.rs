@@ -3,6 +3,7 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
     Json,
+    Extension,
 };
 use std::sync::Arc;
 
@@ -39,56 +40,63 @@ pub mod callbacks {
 
 pub async fn create_blast(
     State(state): State<Arc<AppState>>,
+    Extension(user_id): Extension<String>,
     Json(payload): Json<CreateBlastRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let response = blasts::execute_blast(&state.db, &state.ws_hub, &state.whatsapp_service_url, payload).await?;
+    let response = blasts::execute_blast(&state.db, &state.ws_hub, &state.whatsapp_service_url, &user_id, payload).await?;
     Ok((StatusCode::CREATED, Json(response)))
 }
 
 pub async fn list_blasts(
     State(state): State<Arc<AppState>>,
+    Extension(user_id): Extension<String>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let response = blasts::get_blasts_list(&state.db).await?;
+    let response = blasts::get_blasts_list(&state.db, &user_id).await?;
     Ok(Json(response))
 }
 
 pub async fn get_blast(
     State(state): State<Arc<AppState>>,
+    Extension(user_id): Extension<String>,
     Path(id_str): Path<String>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let response = blasts::get_blast_details(&state.db, &id_str).await?;
+    let response = blasts::get_blast_details(&state.db, &user_id, &id_str).await?;
     Ok(Json(response))
 }
 
 pub async fn list_blast_recipients(
     State(state): State<Arc<AppState>>,
+    Extension(user_id): Extension<String>,
     Path(id_str): Path<String>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let response = blasts::get_blast_recipients_list(&state.db, &id_str).await?;
+    let response = blasts::get_blast_recipients_list(&state.db, &user_id, &id_str).await?;
     Ok(Json(response))
 }
 
 pub async fn pause_blast(
     State(state): State<Arc<AppState>>,
+    Extension(user_id): Extension<String>,
     Path(id_str): Path<String>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    blasts::trigger_blast_action(&state.db, &state.ws_hub, &state.whatsapp_service_url, &id_str, "pause", "Paused").await?;
+    blasts::trigger_blast_action(&state.db, &state.ws_hub, &state.whatsapp_service_url, &user_id, &id_str, "pause", "Paused").await?;
     Ok(StatusCode::OK)
 }
 
 pub async fn resume_blast(
     State(state): State<Arc<AppState>>,
+    Extension(user_id): Extension<String>,
     Path(id_str): Path<String>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    blasts::trigger_blast_action(&state.db, &state.ws_hub, &state.whatsapp_service_url, &id_str, "resume", "Running").await?;
+    blasts::trigger_blast_action(&state.db, &state.ws_hub, &state.whatsapp_service_url, &user_id, &id_str, "resume", "Running").await?;
     Ok(StatusCode::OK)
 }
 
 pub async fn cancel_blast(
     State(state): State<Arc<AppState>>,
+    Extension(user_id): Extension<String>,
     Path(id_str): Path<String>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    blasts::trigger_blast_action(&state.db, &state.ws_hub, &state.whatsapp_service_url, &id_str, "cancel", "Cancelled").await?;
+    blasts::trigger_blast_action(&state.db, &state.ws_hub, &state.whatsapp_service_url, &user_id, &id_str, "cancel", "Cancelled").await?;
     Ok(StatusCode::OK)
 }
 

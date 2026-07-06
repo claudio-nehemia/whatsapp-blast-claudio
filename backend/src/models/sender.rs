@@ -11,6 +11,7 @@ pub struct WhatsappSender {
     pub session_id: String,
     pub status: String, // "disconnected", "connecting", "qr", "connected"
     pub qr_code: Option<String>,
+    pub user_id: Option<ObjectId>,
     #[serde(with = "mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime")]
     pub created_at: DateTime<Utc>,
 }

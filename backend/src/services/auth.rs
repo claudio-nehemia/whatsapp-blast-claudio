@@ -26,6 +26,7 @@ pub async fn register_user(
         name: payload.name,
         email: payload.email,
         password_hash,
+        role: "user".to_string(),
         created_at: Utc::now(),
     };
     
@@ -91,4 +92,20 @@ pub async fn get_user_profile(
         Some(u) => Ok(u.to_response()),
         None => Err((StatusCode::NOT_FOUND, "User not found".to_string())),
     }
+}
+
+pub async fn check_user_role(
+    db: &Db,
+    user_id: &str,
+) -> Result<(ObjectId, String), (StatusCode, String)> {
+    let users_col = db.db.collection::<User>("users");
+    
+    let oid = ObjectId::parse_str(user_id)
+        .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid user ID format".to_string()))?;
+        
+    let user = users_col.find_one(doc! { "_id": oid }, None).await
+        .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
+        .ok_or_else(|| (StatusCode::NOT_FOUND, "User not found".to_string()))?;
+        
+    Ok((oid, user.role))
 }

@@ -21,6 +21,9 @@ async fn main() {
     // Init MongoDB Connection
     let db = Db::init().await;
 
+    // Seed Super Admin if not present
+    seed_super_admin(&db).await;
+
     // Init WebSocket Hub
     let ws_hub = Arc::new(WsHub::new());
 
@@ -55,4 +58,34 @@ async fn main() {
 
     axum::serve(listener, app).await
         .expect("Server failed to run");
+}
+
+async fn seed_super_admin(db: &Db) {
+    let users_col = db.db.collection::<models::user::User>("users");
+    
+    // Check if a superadmin exists
+    let filter = mongodb::bson::doc! { "role": "superadmin" };
+    match users_col.find_one(filter, None).await {
+        Ok(Some(_)) => {
+            println!("Super Admin account already exists.");
+        }
+        Ok(None) => {
+            let password_hash = utils::auth::hash_password("superadmin123");
+            let admin = models::user::User {
+                id: None,
+                name: "Super Admin".to_string(),
+                email: "admin@claz.me".to_string(),
+                password_hash,
+                role: "superadmin".to_string(),
+                created_at: chrono::Utc::now(),
+            };
+            match users_col.insert_one(&admin, None).await {
+                Ok(_) => println!("Seeded Super Admin account successfully (admin@claz.me / superadmin123)"),
+                Err(e) => eprintln!("Failed to seed Super Admin account: {}", e),
+            }
+        }
+        Err(e) => {
+            eprintln!("Failed to check for Super Admin: {}", e);
+        }
+    }
 }

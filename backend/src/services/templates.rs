@@ -8,8 +8,10 @@ use crate::models::template::{Template, CreateTemplateRequest, TemplateResponse}
 
 pub async fn insert_template(
     db: &Db,
+    user_id: &str,
     payload: CreateTemplateRequest,
 ) -> Result<TemplateResponse, (StatusCode, String)> {
+    let (user_oid, _role) = crate::services::auth::check_user_role(db, user_id).await?;
     let templates_col = db.db.collection::<Template>("templates");
     
     let new_template = Template {
@@ -18,6 +20,7 @@ pub async fn insert_template(
         body: payload.body,
         image_path: payload.image_path,
         campaign_ids: payload.campaign_ids,
+        user_id: Some(user_oid),
         created_at: Utc::now(),
     };
     
@@ -33,10 +36,18 @@ pub async fn insert_template(
 
 pub async fn get_templates_list(
     db: &Db,
+    user_id: &str,
 ) -> Result<Vec<TemplateResponse>, (StatusCode, String)> {
+    let (user_oid, role) = crate::services::auth::check_user_role(db, user_id).await?;
     let templates_col = db.db.collection::<Template>("templates");
     
-    let mut cursor = templates_col.find(None, None).await
+    let filter = if role == "superadmin" {
+        doc! {}
+    } else {
+        doc! { "user_id": user_oid }
+    };
+
+    let mut cursor = templates_col.find(filter, None).await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
         
     let mut templates = Vec::new();
@@ -52,14 +63,22 @@ pub async fn get_templates_list(
 
 pub async fn get_template_details(
     db: &Db,
+    user_id: &str,
     id_str: &str,
 ) -> Result<TemplateResponse, (StatusCode, String)> {
+    let (user_oid, role) = crate::services::auth::check_user_role(db, user_id).await?;
     let templates_col = db.db.collection::<Template>("templates");
     
     let oid = ObjectId::parse_str(id_str)
         .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid template ID format".to_string()))?;
         
-    let template = templates_col.find_one(doc! { "_id": oid }, None).await
+    let filter = if role == "superadmin" {
+        doc! { "_id": oid }
+    } else {
+        doc! { "_id": oid, "user_id": user_oid }
+    };
+
+    let template = templates_col.find_one(filter, None).await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
         
     match template {
@@ -70,14 +89,22 @@ pub async fn get_template_details(
 
 pub async fn modify_template(
     db: &Db,
+    user_id: &str,
     id_str: &str,
     payload: CreateTemplateRequest,
 ) -> Result<TemplateResponse, (StatusCode, String)> {
+    let (user_oid, role) = crate::services::auth::check_user_role(db, user_id).await?;
     let templates_col = db.db.collection::<Template>("templates");
     
     let oid = ObjectId::parse_str(id_str)
         .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid template ID format".to_string()))?;
         
+    let filter = if role == "superadmin" {
+        doc! { "_id": oid }
+    } else {
+        doc! { "_id": oid, "user_id": user_oid }
+    };
+
     let update_doc = doc! {
         "$set": doc! {
             "name": payload.name,
@@ -87,7 +114,7 @@ pub async fn modify_template(
         }
     };
     
-    let res = templates_col.update_one(doc! { "_id": oid }, update_doc, None).await
+    let res = templates_col.update_one(filter, update_doc, None).await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
         
     if res.matched_count == 0 {
@@ -103,14 +130,22 @@ pub async fn modify_template(
 
 pub async fn remove_template(
     db: &Db,
+    user_id: &str,
     id_str: &str,
 ) -> Result<(), (StatusCode, String)> {
+    let (user_oid, role) = crate::services::auth::check_user_role(db, user_id).await?;
     let templates_col = db.db.collection::<Template>("templates");
     
     let oid = ObjectId::parse_str(id_str)
         .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid template ID format".to_string()))?;
         
-    let res = templates_col.delete_one(doc! { "_id": oid }, None).await
+    let filter = if role == "superadmin" {
+        doc! { "_id": oid }
+    } else {
+        doc! { "_id": oid, "user_id": user_oid }
+    };
+
+    let res = templates_col.delete_one(filter, None).await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
         
     if res.deleted_count == 0 {

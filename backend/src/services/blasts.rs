@@ -51,8 +51,11 @@ pub async fn execute_blast(
     db: &Db,
     ws_hub: &WsHub,
     whatsapp_service_url: &str,
+    user_id: &str,
     payload: CreateBlastRequest,
 ) -> Result<BlastResponse, (StatusCode, String)> {
+    let (user_oid, _role) = crate::services::auth::check_user_role(db, user_id).await?;
+
     let campaigns_col = db.db.collection::<ContactCampaign>("contact_campaigns");
     let templates_col = db.db.collection::<Template>("templates");
     let contacts_col = db.db.collection::<Contact>("contacts");
@@ -94,7 +97,7 @@ pub async fn execute_blast(
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         .ok_or_else(|| (StatusCode::NOT_FOUND, "Template not found".to_string()))?;
 
-    let settings = settings_col.find_one(None, None).await
+    let settings = settings_col.find_one(doc! { "user_id": user_oid }, None).await
         .unwrap_or(None)
         .unwrap_or(Settings {
             id: None,
@@ -103,6 +106,7 @@ pub async fn execute_blast(
             max_retry: 3,
             typing_simulation: true,
             auto_retry: true,
+            user_id: Some(user_oid),
         });
 
     let excluded_oids: Vec<ObjectId> = payload.excluded_contact_ids.iter()
@@ -167,6 +171,7 @@ pub async fn execute_blast(
         success_count: 0,
         failed_count: 0,
         status: "Running".to_string(),
+        user_id: Some(user_oid),
         created_at: Utc::now(),
     };
 
@@ -235,13 +240,21 @@ pub async fn execute_blast(
 
 pub async fn get_blasts_list(
     db: &Db,
+    user_id: &str,
 ) -> Result<Vec<BlastResponse>, (StatusCode, String)> {
+    let (user_oid, role) = crate::services::auth::check_user_role(db, user_id).await?;
     let blasts_col = db.db.collection::<Blast>("blasts");
     let campaigns_col = db.db.collection::<ContactCampaign>("contact_campaigns");
     let templates_col = db.db.collection::<Template>("templates");
     let senders_col = db.db.collection::<WhatsappSender>("whatsapp_senders");
 
-    let mut cursor = blasts_col.find(None, None).await
+    let filter = if role == "superadmin" {
+        doc! {}
+    } else {
+        doc! { "user_id": user_oid }
+    };
+
+    let mut cursor = blasts_col.find(filter, None).await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
 
     let mut response = Vec::new();
@@ -319,6 +332,7 @@ pub async fn get_blasts_list(
         });
     }
 
+    // Sort by created_at descending
     response.sort_by(|a, b| b.created_at.cmp(&a.created_at));
 
     Ok(response)
@@ -326,8 +340,10 @@ pub async fn get_blasts_list(
 
 pub async fn get_blast_details(
     db: &Db,
+    user_id: &str,
     id_str: &str,
 ) -> Result<BlastResponse, (StatusCode, String)> {
+    let (user_oid, role) = crate::services::auth::check_user_role(db, user_id).await?;
     let blasts_col = db.db.collection::<Blast>("blasts");
     let campaigns_col = db.db.collection::<ContactCampaign>("contact_campaigns");
     let templates_col = db.db.collection::<Template>("templates");
@@ -335,7 +351,13 @@ pub async fn get_blast_details(
     let oid = ObjectId::parse_str(id_str)
         .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid Blast ID format".to_string()))?;
 
-    let b = blasts_col.find_one(doc! { "_id": oid }, None).await
+    let filter = if role == "superadmin" {
+        doc! { "_id": oid }
+    } else {
+        doc! { "_id": oid, "user_id": user_oid }
+    };
+
+    let b = blasts_col.find_one(filter, None).await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         .ok_or_else(|| (StatusCode::NOT_FOUND, "Blast not found".to_string()))?;
 
@@ -388,13 +410,26 @@ pub async fn get_blast_details(
 
 pub async fn get_blast_recipients_list(
     db: &Db,
+    user_id: &str,
     id_str: &str,
 ) -> Result<Vec<RecipientResponse>, (StatusCode, String)> {
+    let (user_oid, role) = crate::services::auth::check_user_role(db, user_id).await?;
+    let blasts_col = db.db.collection::<Blast>("blasts");
     let recipients_col = db.db.collection::<BlastRecipient>("blast_recipients");
     let contacts_col = db.db.collection::<Contact>("contacts");
 
     let oid = ObjectId::parse_str(id_str)
         .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid Blast ID format".to_string()))?;
+
+    // Verify ownership
+    let blast_filter = if role == "superadmin" {
+        doc! { "_id": oid }
+    } else {
+        doc! { "_id": oid, "user_id": user_oid }
+    };
+    if blasts_col.find_one(blast_filter, None).await.unwrap_or(None).is_none() {
+        return Err((StatusCode::NOT_FOUND, "Blast not found".to_string()));
+    }
 
     let mut cursor = recipients_col.find(doc! { "blast_id": oid }, None).await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
@@ -427,13 +462,24 @@ pub async fn trigger_blast_action(
     db: &Db,
     ws_hub: &WsHub,
     whatsapp_service_url: &str,
+    user_id: &str,
     blast_id: &str,
     action: &str,
     status_db: &str,
 ) -> Result<(), (StatusCode, String)> {
+    let (user_oid, role) = crate::services::auth::check_user_role(db, user_id).await?;
     let blasts_col = db.db.collection::<Blast>("blasts");
     let oid = ObjectId::parse_str(blast_id)
         .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid Blast ID".to_string()))?;
+
+    let blast_filter = if role == "superadmin" {
+        doc! { "_id": oid }
+    } else {
+        doc! { "_id": oid, "user_id": user_oid }
+    };
+    if blasts_col.find_one(blast_filter.clone(), None).await.unwrap_or(None).is_none() {
+        return Err((StatusCode::NOT_FOUND, "Blast not found".to_string()));
+    }
 
     let client = reqwest::Client::new();
     let node_url = format!("{}/api/blast/{}", whatsapp_service_url, action);
@@ -442,7 +488,7 @@ pub async fn trigger_blast_action(
     match res {
         Ok(r) if r.status().is_success() => {
             let update_res = blasts_col.update_one(
-                doc! { "_id": oid },
+                blast_filter,
                 doc! { "$set": doc! { "status": status_db } },
                 None
             ).await;

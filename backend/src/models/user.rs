@@ -9,6 +9,7 @@ pub struct User {
     pub name: String,
     pub email: String,
     pub password_hash: String,
+    pub role: String, // "superadmin" or "user"
     #[serde(with = "mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime")]
     pub created_at: DateTime<Utc>,
 }
@@ -37,6 +38,7 @@ pub struct UserResponse {
     pub id: String,
     pub name: String,
     pub email: String,
+    pub role: String,
     pub created_at: DateTime<Utc>,
 }
 
@@ -46,6 +48,7 @@ impl User {
             id: self.id.map(|oid| oid.to_hex()).unwrap_or_default(),
             name: self.name.clone(),
             email: self.email.clone(),
+            role: self.role.clone(),
             created_at: self.created_at,
         }
     }

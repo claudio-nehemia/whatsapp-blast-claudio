@@ -6,10 +6,12 @@ use crate::models::settings::{Settings, UpdateSettingsRequest};
 
 pub async fn get_system_settings(
     db: &Db,
+    user_id: &str,
 ) -> Result<Settings, (StatusCode, String)> {
+    let (user_oid, _role) = crate::services::auth::check_user_role(db, user_id).await?;
     let settings_col = db.db.collection::<Settings>("settings");
     
-    let settings = settings_col.find_one(None, None).await
+    let settings = settings_col.find_one(doc! { "user_id": user_oid }, None).await
         .unwrap_or(None);
         
     let active_settings = match settings {
@@ -22,6 +24,7 @@ pub async fn get_system_settings(
                 max_retry: 3,
                 typing_simulation: true,
                 auto_retry: true,
+                user_id: Some(user_oid),
             };
             let insert_res = settings_col.insert_one(&default_s, None).await
                 .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
@@ -36,8 +39,10 @@ pub async fn get_system_settings(
 
 pub async fn modify_system_settings(
     db: &Db,
+    user_id: &str,
     payload: UpdateSettingsRequest,
 ) -> Result<Settings, (StatusCode, String)> {
+    let (user_oid, _role) = crate::services::auth::check_user_role(db, user_id).await?;
     let settings_col = db.db.collection::<Settings>("settings");
     
     let update_doc = doc! {
@@ -47,14 +52,15 @@ pub async fn modify_system_settings(
             "max_retry": payload.max_retry,
             "typing_simulation": payload.typing_simulation,
             "auto_retry": payload.auto_retry,
+            "user_id": user_oid,
         }
     };
     
     let opts = mongodb::options::UpdateOptions::builder().upsert(true).build();
-    settings_col.update_one(doc! {}, update_doc, opts).await
+    settings_col.update_one(doc! { "user_id": user_oid }, update_doc, opts).await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
         
-    let updated = settings_col.find_one(None, None).await
+    let updated = settings_col.find_one(doc! { "user_id": user_oid }, None).await
         .unwrap_or(None)
         .ok_or_else(|| (StatusCode::NOT_FOUND, "Settings not found after update".to_string()))?;
         

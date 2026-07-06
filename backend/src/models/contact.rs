@@ -10,6 +10,7 @@ pub struct Contact {
     pub phone: String,
     pub name: String,
     pub dynamic_fields: Document,
+    pub user_id: Option<ObjectId>,
     #[serde(with = "mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime")]
     pub created_at: DateTime<Utc>,
 }

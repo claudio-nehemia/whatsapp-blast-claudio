@@ -15,6 +15,7 @@ pub struct Blast {
     pub success_count: i32,
     pub failed_count: i32,
     pub status: String, // "Pending", "Running", "Completed", "Cancelled"
+    pub user_id: Option<ObjectId>,
     #[serde(with = "mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime")]
     pub created_at: DateTime<Utc>,
 }

@@ -8,6 +8,7 @@ pub struct ContactCampaign {
     pub id: Option<ObjectId>,
     pub name: String,
     pub headers: Vec<String>,
+    pub user_id: Option<ObjectId>,
     #[serde(with = "mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime")]
     pub created_at: DateTime<Utc>,
 }

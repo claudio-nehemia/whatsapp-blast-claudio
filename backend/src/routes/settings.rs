@@ -3,6 +3,7 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
     Json,
+    Extension,
 };
 use std::sync::Arc;
 use serde::Deserialize;
@@ -26,16 +27,18 @@ pub struct WhatsappStatusCallback {
 
 pub async fn get_settings(
     State(state): State<Arc<AppState>>,
+    Extension(user_id): Extension<String>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let response = settings::get_system_settings(&state.db).await?;
+    let response = settings::get_system_settings(&state.db, &user_id).await?;
     Ok(Json(response))
 }
 
 pub async fn update_settings(
     State(state): State<Arc<AppState>>,
+    Extension(user_id): Extension<String>,
     Json(payload): Json<UpdateSettingsRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let response = settings::modify_system_settings(&state.db, payload).await?;
+    let response = settings::modify_system_settings(&state.db, &user_id, payload).await?;
     Ok(Json(response))
 }
 

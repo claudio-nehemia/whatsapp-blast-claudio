@@ -23,7 +23,7 @@ const MainLayout: React.FC = () => {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  const menuItems = [
+  const baseMenuItems = [
     { name: t('dashboard'), path: '/', icon: LayoutDashboard },
     { name: t('blasts'), path: '/blast', icon: Send },
     { name: t('contacts'), path: '/contacts', icon: Users },
@@ -31,6 +31,10 @@ const MainLayout: React.FC = () => {
     { name: 'WhatsApp Senders', path: '/senders', icon: Smartphone },
     { name: t('settings'), path: '/settings', icon: SettingsIcon },
   ];
+
+  const menuItems = user?.role === 'superadmin'
+    ? [...baseMenuItems, { name: 'User Management', path: '/admin/users', icon: User }]
+    : baseMenuItems;
 
   const handleLogout = () => {
     logout();

@@ -10,6 +10,7 @@ pub struct Template {
     pub body: String,
     pub image_path: Option<String>,
     pub campaign_ids: Option<Vec<String>>,
+    pub user_id: Option<ObjectId>,
     #[serde(with = "mongodb::bson::serde_helpers::chrono_datetime_as_bson_datetime")]
     pub created_at: DateTime<Utc>,
 }

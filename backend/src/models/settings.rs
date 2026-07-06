@@ -10,6 +10,7 @@ pub struct Settings {
     pub max_retry: i32,
     pub typing_simulation: bool,
     pub auto_retry: bool,
+    pub user_id: Option<ObjectId>,
 }
 
 #[derive(Debug, Deserialize)]

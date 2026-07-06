@@ -14,9 +14,12 @@ use crate::routes::contacts::ContactsQuery;
 
 pub async fn upload_excel_contacts(
     db: &Db,
+    user_id: &str,
     campaign_name: String,
     file_bytes: Vec<u8>,
 ) -> Result<CampaignResponse, (StatusCode, String)> {
+    let (user_oid, role) = crate::services::auth::check_user_role(db, user_id).await?;
+
     if campaign_name.is_empty() {
         return Err((StatusCode::BAD_REQUEST, "campaign_name is required".to_string()));
     }
@@ -58,8 +61,14 @@ pub async fn upload_excel_contacts(
             campaign_name.clone()
         };
 
-        // If campaign already exists, delete it and its contacts first to overwrite
-        if let Some(existing_camp) = campaign_col.find_one(doc! { "name": &sheet_campaign_name }, None).await
+        // If campaign already exists for this user (or globally for superadmin), delete it and its contacts first to overwrite
+        let duplicate_filter = if role == "superadmin" {
+            doc! { "name": &sheet_campaign_name }
+        } else {
+            doc! { "name": &sheet_campaign_name, "user_id": user_oid }
+        };
+
+        if let Some(existing_camp) = campaign_col.find_one(duplicate_filter, None).await
             .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?
         {
             if let Some(oid) = existing_camp.id {
@@ -72,6 +81,7 @@ pub async fn upload_excel_contacts(
             id: None,
             name: sheet_campaign_name.clone(),
             headers: sheet.headers.clone(),
+            user_id: Some(user_oid),
             created_at: Utc::now(),
         };
 
@@ -86,6 +96,7 @@ pub async fn upload_excel_contacts(
             phone: row.phone,
             name: row.name,
             dynamic_fields: row.dynamic_fields,
+            user_id: Some(user_oid),
             created_at: Utc::now(),
         }).collect();
 
@@ -113,11 +124,19 @@ pub async fn upload_excel_contacts(
 
 pub async fn get_campaigns_list(
     db: &Db,
+    user_id: &str,
 ) -> Result<Vec<CampaignResponse>, (StatusCode, String)> {
+    let (user_oid, role) = crate::services::auth::check_user_role(db, user_id).await?;
     let campaign_col = db.db.collection::<ContactCampaign>("contact_campaigns");
     let contacts_col = db.db.collection::<Contact>("contacts");
     
-    let mut cursor = campaign_col.find(None, None).await
+    let filter = if role == "superadmin" {
+        doc! {}
+    } else {
+        doc! { "user_id": user_oid }
+    };
+
+    let mut cursor = campaign_col.find(filter, None).await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
         
     let mut campaigns = Vec::new();
@@ -142,12 +161,18 @@ pub async fn get_campaigns_list(
 
 pub async fn get_contacts_list(
     db: &Db,
+    user_id: &str,
     params: ContactsQuery,
 ) -> Result<Vec<ContactResponse>, (StatusCode, String)> {
+    let (user_oid, role) = crate::services::auth::check_user_role(db, user_id).await?;
     let contacts_col = db.db.collection::<Contact>("contacts");
     let campaign_col = db.db.collection::<ContactCampaign>("contact_campaigns");
     
-    let mut filter = doc! {};
+    let mut filter = if role == "superadmin" {
+        doc! {}
+    } else {
+        doc! { "user_id": user_oid }
+    };
     
     if let Some(camp_id_str) = params.campaign_id {
         if !camp_id_str.is_empty() && camp_id_str != "all" {
@@ -209,15 +234,23 @@ pub async fn get_contacts_list(
 
 pub async fn remove_campaign(
     db: &Db,
+    user_id: &str,
     id_str: &str,
 ) -> Result<(), (StatusCode, String)> {
+    let (user_oid, role) = crate::services::auth::check_user_role(db, user_id).await?;
     let campaign_col = db.db.collection::<ContactCampaign>("contact_campaigns");
     let contacts_col = db.db.collection::<Contact>("contacts");
     
     let oid = ObjectId::parse_str(id_str)
         .map_err(|_| (StatusCode::BAD_REQUEST, "Invalid campaign ID format".to_string()))?;
         
-    let res = campaign_col.delete_one(doc! { "_id": oid }, None).await
+    let campaign_filter = if role == "superadmin" {
+        doc! { "_id": oid }
+    } else {
+        doc! { "_id": oid, "user_id": user_oid }
+    };
+
+    let res = campaign_col.delete_one(campaign_filter, None).await
         .map_err(|e| (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
         
     if res.deleted_count == 0 {

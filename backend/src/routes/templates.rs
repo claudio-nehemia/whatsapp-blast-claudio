@@ -3,6 +3,7 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
     Json,
+    Extension,
 };
 use std::sync::Arc;
 
@@ -12,41 +13,46 @@ use crate::services::templates;
 
 pub async fn create_template(
     State(state): State<Arc<AppState>>,
+    Extension(user_id): Extension<String>,
     Json(payload): Json<CreateTemplateRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let response = templates::insert_template(&state.db, payload).await?;
+    let response = templates::insert_template(&state.db, &user_id, payload).await?;
     Ok((StatusCode::CREATED, Json(response)))
 }
 
 pub async fn list_templates(
     State(state): State<Arc<AppState>>,
+    Extension(user_id): Extension<String>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let response = templates::get_templates_list(&state.db).await?;
+    let response = templates::get_templates_list(&state.db, &user_id).await?;
     Ok(Json(response))
 }
 
 pub async fn get_template(
     State(state): State<Arc<AppState>>,
+    Extension(user_id): Extension<String>,
     Path(id_str): Path<String>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let response = templates::get_template_details(&state.db, &id_str).await?;
+    let response = templates::get_template_details(&state.db, &user_id, &id_str).await?;
     Ok(Json(response))
 }
 
 pub async fn update_template(
     State(state): State<Arc<AppState>>,
+    Extension(user_id): Extension<String>,
     Path(id_str): Path<String>,
     Json(payload): Json<CreateTemplateRequest>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    let response = templates::modify_template(&state.db, &id_str, payload).await?;
+    let response = templates::modify_template(&state.db, &user_id, &id_str, payload).await?;
     Ok(Json(response))
 }
 
 pub async fn delete_template(
     State(state): State<Arc<AppState>>,
+    Extension(user_id): Extension<String>,
     Path(id_str): Path<String>,
 ) -> Result<impl IntoResponse, (StatusCode, String)> {
-    templates::remove_template(&state.db, &id_str).await?;
+    templates::remove_template(&state.db, &user_id, &id_str).await?;
     Ok(StatusCode::NO_CONTENT)
 }
 
