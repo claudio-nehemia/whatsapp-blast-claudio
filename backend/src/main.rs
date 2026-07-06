@@ -24,6 +24,9 @@ async fn main() {
     // Seed Super Admin if not present
     seed_super_admin(&db).await;
 
+    // Migrate legacy data to main user
+    migrate_legacy_data(&db).await;
+
     // Init WebSocket Hub
     let ws_hub = Arc::new(WsHub::new());
 
@@ -86,6 +89,63 @@ async fn seed_super_admin(db: &Db) {
         }
         Err(e) => {
             eprintln!("Failed to check for Super Admin: {}", e);
+        }
+    }
+}
+
+async fn migrate_legacy_data(db: &Db) {
+    let users_col = db.db.collection::<models::user::User>("users");
+    
+    // Find the user with email pmkmercubuana@gmail.com
+    let filter = mongodb::bson::doc! { "email": "pmkmercubuana@gmail.com" };
+    match users_col.find_one(filter, None).await {
+        Ok(Some(user)) => {
+            if let Some(user_oid) = user.id {
+                println!("Found legacy owner user: pmkmercubuana@gmail.com (ID: {}). Running data migration...", user_oid.to_hex());
+                
+                // Collections to update
+                let collections = vec![
+                    "contact_campaigns",
+                    "contacts",
+                    "templates",
+                    "blasts",
+                    "whatsapp_senders",
+                    "settings"
+                ];
+                
+                for coll_name in collections {
+                    let coll = db.db.collection::<mongodb::bson::Document>(coll_name);
+                    
+                    // Filter: where user_id does not exist or is null
+                    let update_filter = mongodb::bson::doc! {
+                        "$or": [
+                            { "user_id": { "$exists": false } },
+                            { "user_id": mongodb::bson::Bson::Null }
+                        ]
+                    };
+                    
+                    let update_doc = mongodb::bson::doc! {
+                        "$set": { "user_id": user_oid }
+                    };
+                    
+                    match coll.update_many(update_filter, update_doc, None).await {
+                        Ok(res) => {
+                            if res.modified_count > 0 {
+                                println!("Migrated {} documents in collection '{}' to owner pmkmercubuana@gmail.com", res.modified_count, coll_name);
+                            }
+                        }
+                        Err(e) => {
+                            eprintln!("Failed to migrate collection '{}': {}", coll_name, e);
+                        }
+                    }
+                }
+            }
+        }
+        Ok(None) => {
+            println!("Legacy owner user pmkmercubuana@gmail.com not found. Skipping migration.");
+        }
+        Err(e) => {
+            eprintln!("Failed to query legacy owner user for migration: {}", e);
         }
     }
 }
