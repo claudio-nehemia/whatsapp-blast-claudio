@@ -226,13 +226,28 @@ pub async fn execute_blast(
                 created_at: new_blast.created_at,
             })
         }
-        _ => {
+        Ok(res) => {
+            let _ = blasts_col.delete_one(doc! { "_id": blast_oid }, None).await;
+            let _ = recipients_col.delete_many(doc! { "blast_id": blast_oid }, None).await;
+            
+            let status = res.status();
+            let err_body = res.text().await.unwrap_or_default();
+            
+            let err_msg = if let Ok(json_val) = serde_json::from_str::<serde_json::Value>(&err_body) {
+                json_val["error"].as_str().unwrap_or("Failed to initiate blast").to_string()
+            } else {
+                err_body.clone()
+            };
+            
+            Err((status, format!("Gateway Error: {}", err_msg)))
+        }
+        Err(e) => {
             let _ = blasts_col.delete_one(doc! { "_id": blast_oid }, None).await;
             let _ = recipients_col.delete_many(doc! { "blast_id": blast_oid }, None).await;
             
             Err((
                 StatusCode::BAD_GATEWAY,
-                "Failed to initiate blast. WhatsApp gateway is offline.".to_string(),
+                format!("Failed to initiate blast. WhatsApp gateway connection error: {}", e),
             ))
         }
     }

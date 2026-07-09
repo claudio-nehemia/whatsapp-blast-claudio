@@ -111,19 +111,28 @@ export async function connectToWhatsApp(sessionId, onEventCallback) {
 
       if (connection === 'close') {
         const statusCode = lastDisconnect?.error?.output?.statusCode || lastDisconnect?.error?.code;
-        const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+        
+        // 401 = Logged Out, 403 = Banned, 411 = Connection Replaced
+        const isTerminalError = statusCode === DisconnectReason.loggedOut || statusCode === 403 || statusCode === 411;
+        const shouldReconnect = !isTerminalError;
         
         console.log(`Session ${sessionId} closed. Status code: ${statusCode}. Reconnecting: ${shouldReconnect}`);
 
         // Remove the closed socket from our active sockets map so reconnect will spawn a new one
         sockets.delete(sessionId);
 
-        if (statusCode === DisconnectReason.loggedOut) {
+        if (isTerminalError) {
           connectionStatuses.set(sessionId, 'disconnected');
           lastQrs.delete(sessionId);
           clearSession(sessionId);
           if (onEventCallback) {
-            onEventCallback(sessionId, { type: 'disconnected' });
+            let errorMsg = 'Session disconnected';
+            if (statusCode === 403) {
+              errorMsg = 'Account banned';
+            } else if (statusCode === 411) {
+              errorMsg = 'Connection replaced';
+            }
+            onEventCallback(sessionId, { type: 'disconnected', error: errorMsg });
           }
         } else {
           connectionStatuses.set(sessionId, 'connecting');
